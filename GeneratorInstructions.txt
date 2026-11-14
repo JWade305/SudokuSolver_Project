@@ -1,0 +1,5 @@
+python PuzzleGenerator.py                         # one puzzle per band, HC and SA
+python PuzzleGenerator.py --band hard --method sa --verify
+python PuzzleGenerator.py --play medium           # simple playable game (hint / solve / quit)
+python PuzzleGenerator.py --experiment 100        # prints Table 3 data (in-band % and time)
+python PuzzleGenerator.py --calibrate 1000        # guess distribution to help pick band cutoffs
