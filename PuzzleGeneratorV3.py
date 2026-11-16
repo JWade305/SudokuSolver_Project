@@ -2,22 +2,15 @@
 Sudoku puzzle generator (Hill Climbing + Simulated Annealing).
 
 What this file does:
-  You ask for an easy, medium or hard puzzle, and it builds one for you.
+  The player asks for an easy, medium or hard puzzle, and it builds one.
 
-It needs the other two files from our team in the same folder:
-  * PropagationSolverInitial.py  - counts guesses (our difficulty score)
-                                   and checks a puzzle has only one answer
-  * BacktrackingSolverInitial.py - the basic solver, used to double-check
-
-The big idea:
-  A puzzle is a finished grid plus a list of which cells we SHOW as clues.
+Generator Task:
+  A puzzle is a finished grid plus a list of which cells we show as clues.
   We keep changing which cells are clues until the puzzle is the
   difficulty we asked for. A change can be:
       - remove a clue
       - add a clue
       - swap a clue with a blank cell
-  Every changed puzzle must still have exactly ONE solution, or we throw
-  the change away.
 
   "Cost" = how far the puzzle's difficulty is from the band we want.
   Cost 0 means we hit the band. Lower cost is better.
@@ -25,14 +18,13 @@ The big idea:
                            If we get stuck, start over with a new puzzle.
     * Simulated annealing: same, but sometimes keep a WORSE change too.
                            Early on it does this a lot, later less and less
-                           (like a hot metal cooling down).
 
 How to run it:
-  python PuzzleGenerator.py                        # one puzzle per band, both methods
+  python PuzzleGenerator.py                       
   python PuzzleGenerator.py --band hard --method sa
-  python PuzzleGenerator.py --play medium          # play a puzzle in the terminal
-  python PuzzleGenerator.py --experiment 100       # numbers for Table 3 / Figure 4
-  python PuzzleGenerator.py --calibrate 1000       # help pick band cutoffs
+  python PuzzleGenerator.py --play medium        
+  python PuzzleGenerator.py --experiment 100      
+  python PuzzleGenerator.py --calibrate 1000 
 """
 
 import argparse
@@ -43,34 +35,25 @@ import time
 import PropagationSolverInitial as prop
 import BacktrackingSolverInitial as base
 
-# ----------------------------------------------------------------------------
 # Difficulty bands
 # Difficulty = number of guesses the propagation solver makes.
-# These cutoffs are shared with the rest of the team (from the 1,000-puzzle sample).
-# ----------------------------------------------------------------------------
 EASY_MAX = 16      # easy: 0 to 16 guesses
 MEDIUM_MAX = 60    # medium: 17 to 60, hard: 61+
 BANDS = {
     "easy": (0, EASY_MAX),
     "medium": (EASY_MAX + 1, MEDIUM_MAX),
-    "hard": (MEDIUM_MAX + 1, math.inf),   # math.inf just means "no upper limit"
+    "hard": (MEDIUM_MAX + 1, math.inf), 
 }
 
-# How many clues the first puzzle is cut down to (just a starting point).
+# How many clues the first puzzle is cut down to (starting point).
 # The search can add or remove clues after that. 0 means "remove as many as possible".
 START_CLUES = {"easy": 38, "medium": 30, "hard": 0}
 
-# A list of all 81 cells as (row, column) pairs.
 ALL_CELLS = [(r, c) for r in range(9) for c in range(9)]
 
 
-# ----------------------------------------------------------------------------
-# Building blocks
-# ----------------------------------------------------------------------------
+
 def random_solution(rng):
-    """Make a random, fully filled-in Sudoku grid.
-    We fill the three boxes on the diagonal with shuffled digits (they don't
-    affect each other), then let the solver fill in the rest."""
     board = [[0] * 9 for _ in range(9)]
     for k in range(3):
         digits = list(range(1, 10))
@@ -82,13 +65,10 @@ def random_solution(rng):
 
 
 def to_board(solution, clues):
-    """Turn a solved grid + a set of clue cells into a puzzle.
-    Cells that are clues keep their digit, all other cells become 0 (blank)."""
     return [[solution[r][c] if (r, c) in clues else 0 for c in range(9)] for r in range(9)]
 
 
 def is_unique(solution, clues):
-    """Check the puzzle has exactly one solution (True) or not (False)."""
     return prop.count_solutions(to_board(solution, clues)) == 1
 
 
@@ -139,14 +119,14 @@ def initial_puzzle(band, rng):
 
 def neighbour(solution, clues, rng):
     """Make one small random change to the clues (remove, add or swap).
-    Returns the new set of clues, or None if the change gave a puzzle that
+    Returns the new set of clues, or none if the change gave a puzzle that
     does not have exactly one solution."""
     blanks = [c for c in ALL_CELLS if c not in clues]
     roll = rng.random()
     new = set(clues)
     if roll < 0.2 and len(clues) > 17:                 # remove a clue
         new.remove(rng.choice(list(clues)))
-    elif roll < 0.4 and blanks:                        # add a clue (always stays unique)
+    elif roll < 0.4 and blanks:                        # add a clue
         new.add(rng.choice(blanks))
         return new
     elif blanks:                                       # swap a clue with a blank cell
@@ -154,13 +134,9 @@ def neighbour(solution, clues, rng):
         new.add(rng.choice(blanks))
     return new if is_unique(solution, new) else None
 
-
-# ----------------------------------------------------------------------------
 # Hill climbing
-# ----------------------------------------------------------------------------
 def hill_climb(band, rng, max_seconds=20, patience=300):
-    """Search for a puzzle in the wanted band using hill climbing.
-    Keep a change if the puzzle gets closer to the band (or stays as close).
+    """Keep a change if the puzzle gets closer to the band.
     If 300 changes in a row don't help, give up on this puzzle and start a
     new one. Stops when we hit the band or run out of time."""
     start = time.perf_counter()
@@ -191,14 +167,10 @@ def hill_climb(band, rng, max_seconds=20, patience=300):
             break
     return best
 
-
-# ----------------------------------------------------------------------------
 # Simulated annealing
-# ----------------------------------------------------------------------------
 def simulated_annealing(band, rng, max_seconds=20, t_start=3.0, t_end=0.05, cooling=0.995):
-    """Search for a puzzle in the wanted band using simulated annealing.
-    Like hill climbing, but a worse change is sometimes kept anyway.
-    The "temperature" starts high (accepts worse changes often) and slowly
+    """Like hill climbing, but a worse change is sometimes kept anyway.
+    The temperature starts high (accepts worse changes often) and slowly
     cools down (accepts them less). If it gets too cold, we heat it up again.
     Stops when we hit the band or run out of time."""
     start = time.perf_counter()
@@ -218,18 +190,16 @@ def simulated_annealing(band, rng, max_seconds=20, t_start=3.0, t_end=0.05, cool
                 if current < best[3]:
                     best = (solution, set(clues), score, current)
         temp *= cooling
-        if temp < t_end:                               # too cold, heat up again
+        if temp < t_end:                        
             temp = t_start
     return best
 
 
-# ----------------------------------------------------------------------------
-# Main function other code should call
-# ----------------------------------------------------------------------------
+# Main function 
 def generate(band="medium", method="sa", seed=None, max_seconds=20):
     """Make one puzzle. This is the main function to call.
     band is "easy", "medium" or "hard". method is "hc" or "sa".
-    Returns a dictionary with the puzzle, its solution and some stats.
+    Returns a dictionary with the puzzle, its solution and stats.
     "in_band" is False if time ran out before we hit the wanted band."""
     rng = random.Random(seed)
     t0 = time.perf_counter()
@@ -250,16 +220,12 @@ def generate(band="medium", method="sa", seed=None, max_seconds=20):
 
 
 def verify_with_baseline(result):
-    """Double-check a puzzle with the basic backtracking solver.
-    Returns True if it finds the same solution we stored.
-    Can be slow on hard puzzles."""
+    #Double-check a puzzle with the basic backtracking solver.
     board = [row[:] for row in result["puzzle"]]
     return base.solve_sudoku(board) and board == result["solution"]
 
 
 def print_board(board):
-    """Print a grid in the terminal. Blank cells show as '.', with lines
-    between the 3x3 boxes."""
     for r in range(9):
         if r and r % 3 == 0:
             print("------+-------+------")
@@ -268,9 +234,7 @@ def print_board(board):
             for c in range(9)).replace("  ", " "))
 
 
-# ----------------------------------------------------------------------------
 # Experiment (Table 3 / Figure 4) and calibration
-# ----------------------------------------------------------------------------
 def experiment(n, seconds=20):
     """Make n puzzles per band for each method and print a results table.
     Shows the % of puzzles that landed in the band (and were unique)
@@ -307,9 +271,7 @@ def calibrate(n):
     print(f"{n} puzzles; 33rd percentile = {scores[n // 3]}, 66th = {scores[2 * n // 3]}, max = {scores[-1]}")
 
 
-# ----------------------------------------------------------------------------
-# Tiny playable game
-# ----------------------------------------------------------------------------
+#playable game
 def play(band):
     """Play a generated puzzle in the terminal.
     Type 'row col digit' to fill a cell, 'hint' for a free answer,
@@ -348,10 +310,7 @@ def play(band):
                 print("(That digit does not match the solution.)")
 
 
-# ----------------------------------------------------------------------------
-# Command-line part: reads what you typed after "python PuzzleGenerator.py"
-# and calls the right function above.
-# ----------------------------------------------------------------------------
+# Command-line: reads what player types after "python PuzzleGenerator.py"
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Sudoku puzzle generator (HC / SA)")
     ap.add_argument("--band", choices=list(BANDS))
